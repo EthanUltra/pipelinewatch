@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pipelinewatch
+      POSTGRES_PASSWORD: pipelinewatch
+      POSTGRES_DB: pipelinewatch
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pipelinewatch']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    container_name: pipelinewatch_api
+    ports:
+      - '4000:4000'
+    environment:
+      DATABASE_URL: postgresql://pipelinewatch:pipelinewatch@postgres:5432/pipelinewatch
+      JWT_SECRET: dev-secret-change-in-production
+      PORT: 4000
+      FRONTEND_URL: http://localhost:5173
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build: ./frontend
+    container_name: pipelinewatch_frontend
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_API_URL: ''
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
